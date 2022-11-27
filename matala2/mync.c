@@ -43,12 +43,10 @@ void server_func(int connfd)
     for (;;)
     {
         bzero(buff, MAX);
-
         // read the message from client and copy it in buffer
         read(connfd, buff, sizeof(buff));
         // print buffer which contains the client contents
-        printf("%s\n", buff);
-        bzero(buff, MAX);
+        printf("%s", buff);
         
     }
 }
