@@ -11,30 +11,6 @@
 #define TRUE 1
 #define MAX_CMD_SIZE 1024
 
-char **splitStr(char *str)
-{
-
-    int init_size = strlen(str);
-    char *ans[init_size];
-    char delim[] = " ";
-    char *ptr = strtok(str, delim);
-
-    int i = 0;
-    while (ptr != NULL)
-    {
-        ans[i++] = ptr;
-        printf("'%s'\n", ptr);
-        ptr = strtok(NULL, delim);
-    }
-    // /* This loop will show that there are zeroes in the str after tokenizing */
-    // for (int i = 0; i < init_size; i++)
-    // {
-    // 	printf("%d ", str[i]); /* Convert the character to integer, in this case
-    // 						   the character's ASCII equivalent */
-    // }
-    return ans;
-}
-
 void copyFile(char *src, char *dst)
 {
     char c;
@@ -58,6 +34,84 @@ void copyFile(char *src, char *dst)
     fclose(dstFile);
 }
 
+void myPipe(char cmd[MAX_CMD_SIZE])
+{
+    char *tok1;
+    char *tok2; // 1 = left process, 2 = right
+    tok2 = strtok(cmd, "|");
+    tok1 = tok2;
+    tok2 = strtok(NULL, "|");
+
+    int fd[2];
+    if (pipe(fd) == -1)
+    {
+        return 2;
+    }
+    int pid1 = fork();
+    if (pid1 < 0)
+    {
+        return 2;
+    }
+    if (pid1 == 0)
+    {
+        // we stand on the left process child
+        dup2(fd[1], STDOUT_FILENO);
+        close(fd[0]);
+        close(fd[1]);
+
+        char *token;
+        token = strtok(tok1, " ");
+        char *param[1024];
+        int i = 0;
+        while (token != NULL)
+        {
+            param[i++] = token;
+            token = strtok(NULL, " ");
+        }
+        param[i] = NULL;
+        printf("%s", param[0]);
+        if (execvp(param[0], param) == -1)
+        {
+            printf("error1");
+            return 1;
+        }
+    }
+
+    int pid2 = fork();
+    if (pid2 < 0)
+    {
+        return 2;
+    }
+    if (pid2 == 0)
+    {
+        // we stand on the right process child
+        dup2(fd[0], STDIN_FILENO);
+        close(fd[0]);
+        close(fd[1]);
+
+        char *token;
+        token = strtok(tok2, " ");
+        char *param[1024];
+        int i = 0;
+        while (token != NULL)
+        {
+            param[i++] = token;
+            token = strtok(NULL, " ");
+        }
+        param[i] = NULL;
+        if (execvp(param[0], param) == -1)
+        {
+            printf("error");
+            return 1;
+        }
+    }
+    waitpid(pid1, NULL, 0);
+    waitpid(pid2, NULL, 0);
+
+    close(fd[0]);
+    close(fd[1]);
+}
+
 int main()
 {
     char cmd[MAX_CMD_SIZE] = ""; // BUFFER
@@ -68,84 +122,14 @@ int main()
 
         if (strchr(cmd, '|') != NULL)
         {
-            char *tok1;
-            char *tok2; // 1 = left process, 2 = right
-            tok2 = strtok(cmd, "|");
-            tok1 = tok2;
-            tok2 = strtok(NULL, "|");
-
-            int fd[2];
-            if (pipe(fd) == -1)
-            {
-                return 2;
-            }
-            int pid1 = fork();
-            if (pid1 < 0)
-            {
-                return 2;
-            }
-            if (pid1 == 0)
-            {
-                // we stand on the left process child
-                dup2(fd[1], STDOUT_FILENO);
-                close(fd[0]);
-                close(fd[1]);
-
-                char *token;
-                token = strtok(tok1, " ");
-                char* param[1024];
-                int i=0;
-                while( token != NULL ) {
-                    param[i++] = token;
-                    token = strtok(NULL, " ");
-
-                }
-                param[i] = NULL;
-                printf("%s", param[0]);
-                if(execvp(param[0], param) == -1){
-                    printf("error1");
-                    return 1;
-                }
-            }
-
-            int pid2 = fork();
-            if (pid2 < 0)
-            {
-                return 2;
-            }
-            if (pid2 == 0)
-            {
-                // we stand on the right process child
-                dup2(fd[0], STDIN_FILENO);
-                close(fd[0]);
-                close(fd[1]);
-
-                char *token;
-                token = strtok(tok2, " ");
-                char* param[1024];
-                int i=0;
-                while( token != NULL ) {
-                    param[i++] = token;
-                    token = strtok(NULL, " ");
-
-                }
-                param[i] = NULL;
-                if(execvp(param[0], param) == -1){
-                    printf("error");
-                    return 1;
-                }
-            }
-            waitpid(pid1, NULL, 0);
-            waitpid(pid2, NULL, 0);
-
-            close(fd[0]);
-            close(fd[1]);
+            myPipe(cmd);
         }
-        else if((strchr(cmd, '>') != NULL) || (strchr(cmd, '<') != NULL))
+        else if ((strchr(cmd, '>') != NULL) || (strchr(cmd, '<') != NULL))
         {
             char *tok1; // process
             char *tok2; // file
-            if((strchr(cmd, '<') != NULL)){
+            if ((strchr(cmd, '<') != NULL))
+            {
                 tok2 = strtok(cmd, "<");
                 tok1 = tok2;
                 tok2 = strtok(NULL, "<");
@@ -163,7 +147,8 @@ int main()
             }
             if (pid == 0)
             {
-                if (tok2[0] == ' ') tok2++;
+                if (tok2[0] == ' ')
+                    tok2++;
                 int file = open(tok2, O_WRONLY | O_CREAT, 0777);
                 if (file == -1)
                 {
@@ -175,30 +160,93 @@ int main()
 
                 char *token;
                 token = strtok(tok1, " ");
-                char* param[1024];
-                int i=0;
-                while( token != NULL ) {
+                char *param[1024];
+                int i = 0;
+                while (token != NULL)
+                {
                     param[i++] = token;
                     token = strtok(NULL, " ");
                 }
                 param[i] = NULL;
                 printf("%s", param[0]);
-                if(execvp(param[0], param) == -1){
+                if (execvp(param[0], param) == -1)
+                {
                     printf("error1");
                     return 1;
                 }
- 
             }
-
-            
-            
-            
-
-
-
-            
         }
-        
+        else if ((strchr(cmd, '}') != NULL) || (strchr(cmd, '{') != NULL))
+        {
+            char *tok = cmd;
+            if ((strchr(cmd, '{') != NULL))
+            { // server '{ PORT'
+                int pid = fork();
+                if (pid < 0)
+                {
+                    return 2;
+                }
+                tok += 2; // to get port number
+                if (pid == 0)
+                {
+                    if (execlp("nc", "nc", "-l", tok, NULL) == -1)
+                    {
+                        printf("error1");
+                        return 1;
+                    }
+                }
+            }
+            else if ((strchr(cmd, '}') != NULL))
+            {
+                char *tok1;
+                char *tok2;
+                int pid = fork();
+                if (pid < 0)
+                {
+                    return 2;
+                }
+                if (cmd[0] == '}')
+                {
+                    tok += 2;
+                    tok2 = strtok(tok, ":");
+                    tok1 = tok2;
+                    tok2 = strtok(NULL, ":");
+                    if (pid == 0)
+                    {
+                        if (execlp("nc", "nc", tok1, tok2, NULL) == -1)
+                        {
+                            printf("error1");
+                            return 1;
+                        }
+                    }
+                }
+                else
+                {
+                    tok2 = strtok(cmd, "}");
+                    tok1 = tok2;
+                    tok2 = strtok(NULL, "}");
+                    char *ip;
+                    char *port;
+                    port = strtok(tok2, ":");
+                    ip = port;
+                    port = strtok(NULL, ":");
+                    printf("ip: %s", ip);
+                    printf("port: %s", port);
+
+                    if (pid == 0)
+                    {
+                        char input[MAX_CMD_SIZE];
+                        strcpy(input, tok1);
+                        strcat(input, "| nc");
+                        strcat(input, ip);
+                        strcat(input, " ");
+                        strcat(input, port);
+                        printf("input: %s", input);
+                        myPipe(input);
+                    }
+                }
+            }
+        }
 
         else if (!strncmp(cmd, "DIR", 3))
         {
@@ -242,6 +290,31 @@ int main()
             dst[destIndex] = '\0';
             // COPYING FILE
             copyFile(src, dst);
+        }
+
+        int pid = fork();
+        if (pid < 0)
+        {
+            return 2;
+        }
+        if (pid == 0)
+        {
+            char *token;
+            token = strtok(cmd, " ");
+            char *param[1024];
+            int i = 0;
+            while (token != NULL)
+            {
+                param[i++] = token;
+                token = strtok(NULL, " ");
+            }
+            param[i] = NULL;
+
+            if (execvp(param[0], param) == -1)
+            {
+                printf("error");
+                return 1;
+            }
         }
     }
 }

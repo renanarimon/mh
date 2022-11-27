@@ -31,18 +31,19 @@
 // 	}
 
 int main(){
-    char cmd[] = "strtok needs to be called several times to split a string";
-    char *token;
-    token = strtok(cmd, " ");
-    char* param[1024];
-    int i=0;
-    while( token != NULL ) {
-        param[i] = token;
-        token = strtok(NULL, " ");
+    char* cmd = "strtok needs to be called several times to split a string";
+    // char *token;
+    // token = strtok(cmd, " ");
+    // char* param[1024];
+    // int i=0;
+    // while( token != NULL ) {
+    //     param[i] = token;
+    //     token = strtok(NULL, " ");
 
-    }
-    param[i] = NULL;
-    
+    // }
+    // param[i] = NULL;
+    cmd+=2;
+    printf("%s", cmd);
     
     return 0;
 }
