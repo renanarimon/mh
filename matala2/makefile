@@ -4,11 +4,19 @@ FLAGS = -Wall -g
 
 all: mytee shell
 
+
+
 mytee: mytee.o
 	$(CC) -o mytee mytee.o
 
 mytee.o: mytee.c
 	$(CC) $(FLAGS) -c mytee.c 
+
+mync: mync.o
+	$(CC) -o mync mync.o
+
+mync.o: mync.c
+	$(CC) $(FLAGS) -c mync.c 
 
 shell: shell.o
 	$(CC) -o shell shell.o
@@ -23,4 +31,4 @@ main.o: main.c
 	$(CC) $(FLAGS) -c main.c 
 
 clean:
-	rm -f *.o *.so *.txt mytee shell
+	rm -f *.o *.so *.txt mytee shell mync
