@@ -136,9 +136,9 @@ int main()
             }
             else if ((strchr(cmd, '>') != NULL))
             {
-                tok1 = strtok(cmd, ">");
-                tok2 = tok1;
-                tok1 = strtok(NULL, ">");
+                tok2 = strtok(cmd, ">");
+                tok1 = tok2;
+                tok2 = strtok(NULL, ">");
             }
             int pid = fork();
             if (pid < 0)
@@ -168,7 +168,7 @@ int main()
                     token = strtok(NULL, " ");
                 }
                 param[i] = NULL;
-                printf("%s", param[0]);
+                // printf("%s", param[0]);
                 if (execvp(param[0], param) == -1)
                 {
                     printf("error1");
@@ -292,6 +292,8 @@ int main()
             copyFile(src, dst);
         }
 
+        else{
+
         int pid = fork();
         if (pid < 0)
         {
@@ -316,5 +318,7 @@ int main()
                 return 1;
             }
         }
+        }
     }
+    return 0;
 }

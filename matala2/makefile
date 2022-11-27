@@ -24,11 +24,5 @@ shell: shell.o
 shell.o: shell.c
 	$(CC) $(FLAGS) -c shell.c 
 
-main: main.o
-	$(CC) -o main main.o
-
-main.o: main.c
-	$(CC) $(FLAGS) -c main.c 
-
 clean:
 	rm -f *.o *.so *.txt mytee shell mync

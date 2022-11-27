@@ -1,4 +1,45 @@
 # matala 2
 
+## How to run?
+### part A
+1. mytee: write data from STDIN to fileName. </br>
+USE: ./mytee {fileName.txt}</br>
+now, enter data in the commans line, this data would be written to the file.</br>
 
+2. mync: TCP listener/sender.</br>
+USE on 2 separate terminals: </br>
+    a. ./mync -l {PORT} </br>
+    b. ./mync {IP} {PORT}</br>
+
+in 'b' terminal enter data, this data would be written to 'a' terminal.</br>
+
+### part B
+USE: ./shell
+this is our implementation to the shell terminal- so you can use any linux command.
+1. COPY:  copies the content of SRC file to DEST file.
+USE: COPY {src.txt} {dst.txt}
+
+2. DIR: prints everything the curret reposetory contains.
+USE: DIR
+
+3. you can use any linux command in the shell
+
+4. pipe: 
+USE: {command1} | {command2}
+
+5. redirection:
+USE: {command} > {fileName.txt}
+OR: {command} < {fileName.txt}
+
+6. send and recv the output to TCP:IP4 socket
+USE: a. to open server connection --> { PORT
+     b. to open client connection --> } IP:PORT
+     c. (somthing to erite to server) } 127.0.0.1:3950
+     --> example: dir } 127.0.0.1:3950  
+
+
+
+#### code we have used:
 1. https://dev.to/0xbf/implement-tee-cli-in-c-c-lang-2p5c
+2. https://www.geeksforgeeks.org/tcp-server-client-implementation-in-c/
+3.

@@ -16,10 +16,6 @@ int tee_func(int argc, char* fileName){
     }
     ssize_t nread = 0;
     while((nread = read(STDIN_FILENO, buffer, 1024)) != 0) {
-        if (write(STDOUT_FILENO, buffer, nread) != nread) {
-            fprintf(stderr, "%s\n", "Failed to write to stdout");
-            return 3;
-        }
         if (write(outfd, buffer, nread) != nread) {
             fprintf(stderr, "%s\n", "Failed to write to file");
             return 4;
