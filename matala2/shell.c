@@ -6,6 +6,7 @@
 #include <netinet/in.h> //structure for storing address information
 #include <sys/socket.h> //for socket APIs
 #include <sys/types.h>
+#include <fcntl.h>
 
 #define TRUE 1
 #define MAX_CMD_SIZE 1024
@@ -90,19 +91,21 @@ int main()
                 close(fd[0]);
                 close(fd[1]);
 
-                char cp[strlen(tok1)];
-                strcpy(cp, tok1);
-                char *fileName1 = strtok(cp, " ");
-                int len = (int)strlen(tok1) - (int)strlen(fileName1);
-                char args1[len];
-                int j = 0;
-                for (size_t i = strlen(fileName1); i < strlen(tok1); i++)
-                {
-                    args1[j] = tok1[i];
-                    j++;
+                char *token;
+                token = strtok(tok1, " ");
+                char* param[1024];
+                int i=0;
+                while( token != NULL ) {
+                    param[i++] = token;
+                    token = strtok(NULL, " ");
+
                 }
-                printf("fn: %s, args: %s", fileName1, args1);
-                execve(fileName1, args1, NULL); ////// TODO
+                param[i] = NULL;
+                printf("%s", param[0]);
+                if(execvp(param[0], param) == -1){
+                    printf("error1");
+                    return 1;
+                }
             }
 
             int pid2 = fork();
@@ -117,19 +120,20 @@ int main()
                 close(fd[0]);
                 close(fd[1]);
 
-                char cp[strlen(tok2)];
-                strcpy(cp, tok2);
-                char *fileName2 = strtok(cp, " ");
-                int len = (int)strlen(tok2) - (int)strlen(fileName2);
-                char args2[len];
-                int j = 0;
-                for (size_t i = strlen(fileName2); i < strlen(tok2); i++)
-                {
-                    args2[j] = tok2[i];
-                    j++;
+                char *token;
+                token = strtok(tok2, " ");
+                char* param[1024];
+                int i=0;
+                while( token != NULL ) {
+                    param[i++] = token;
+                    token = strtok(NULL, " ");
+
                 }
-                printf("fn: %s, args: %s", fileName2, args2);
-                execve(fileName2, args2, NULL); ////// TODO
+                param[i] = NULL;
+                if(execvp(param[0], param) == -1){
+                    printf("error");
+                    return 1;
+                }
             }
             waitpid(pid1, NULL, 0);
             waitpid(pid2, NULL, 0);
@@ -137,6 +141,64 @@ int main()
             close(fd[0]);
             close(fd[1]);
         }
+        else if((strchr(cmd, '>') != NULL) || (strchr(cmd, '<') != NULL))
+        {
+            char *tok1; // process
+            char *tok2; // file
+            if((strchr(cmd, '<') != NULL)){
+                tok2 = strtok(cmd, "<");
+                tok1 = tok2;
+                tok2 = strtok(NULL, "<");
+            }
+            else if ((strchr(cmd, '>') != NULL))
+            {
+                tok1 = strtok(cmd, ">");
+                tok2 = tok1;
+                tok1 = strtok(NULL, ">");
+            }
+            int pid = fork();
+            if (pid < 0)
+            {
+                return 2;
+            }
+            if (pid == 0)
+            {
+                if (tok2[0] == ' ') tok2++;
+                int file = open(tok2, O_WRONLY | O_CREAT, 0777);
+                if (file == -1)
+                {
+                    printf("error open file '<'");
+                    return 2;
+                }
+                dup2(file, STDOUT_FILENO);
+                close(file);
+
+                char *token;
+                token = strtok(tok1, " ");
+                char* param[1024];
+                int i=0;
+                while( token != NULL ) {
+                    param[i++] = token;
+                    token = strtok(NULL, " ");
+                }
+                param[i] = NULL;
+                printf("%s", param[0]);
+                if(execvp(param[0], param) == -1){
+                    printf("error1");
+                    return 1;
+                }
+ 
+            }
+
+            
+            
+            
+
+
+
+            
+        }
+        
 
         else if (!strncmp(cmd, "DIR", 3))
         {

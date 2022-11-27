@@ -23,4 +23,4 @@ main.o: main.c
 	$(CC) $(FLAGS) -c main.c 
 
 clean:
-	rm -f *.o *.so mytee shell
+	rm -f *.o *.so *.txt mytee shell
