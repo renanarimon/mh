@@ -1,7 +1,9 @@
 #include <stdio.h>
+#include<time.h>
 
 void create100MBfile(char *fileName)
 {
+    clock_t startCreateFile = clock();
     // Create a buffer to hold the data
     const int BUFFER_SIZE = 1024 * 1024 * 100; // 100 MB
     char *buffer = malloc(BUFFER_SIZE * sizeof(char));
@@ -42,10 +44,14 @@ void create100MBfile(char *fileName)
 
     // Free the buffer
     free(buffer);
+    clock_t endCreateFile = clock();
+    double timeToken = (double)(endCreateFile - startCreateFile) / CLOCKS_PER_SEC;
+    printf("time to create 100MB file %s: %f secs\n",fileName ,timeToken);
 }
 
 int checkSum(int argc, char *argv[])
 {
+    clock_t startCheckSum = clock();
     if (argc != 2)
     {
         fprintf(stderr, "Usage: %s <file>\n", argv[0]);
@@ -81,6 +87,9 @@ int checkSum(int argc, char *argv[])
         perror("fclose");
         return 1;
     }
+    clock_t endCheckSum = clock();
+    double timeToken = (double)(endCheckSum - startCheckSum) / CLOCKS_PER_SEC;
+    printf("time to checkSum file %s: %f secs\n", argv[1] ,timeToken);
 
     return 0;
 }
