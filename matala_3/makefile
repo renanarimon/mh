@@ -13,4 +13,4 @@ main.o: Nain.c
 
 
 clean:
-	rm -f *.o *.so *.txt main
+	rm -f *.o *.so *.txt *.client *.server main 
