@@ -15,6 +15,7 @@
 #include <errno.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <sys/mman.h>
 
 // define for UDS
 #define SOCK_PATH "tpf_unix_sock.server"
@@ -363,7 +364,7 @@ int senderUDP()
         bzero(buffer, MAXLINE);
     }
     sendto(sockfd, "", 0, 0, (const struct sockaddr *)&servaddr, sizeof(servaddr));
-    
+
     // Close the file and the socket.
     fclose(fp);
     close(sockfd);
@@ -782,11 +783,144 @@ int sendUDS_datagram()
     }
 }
 
+int myMmap()
+{
+    pid_t pid;
+    if ((pid = fork()) == -1)
+    {
+        perror("fork");
+        exit(1);
+    }
+    if (pid == 0)
+    {
+        int fd = open(fileName, O_RDWR);
+        if (fd == -1)
+        {
+            perror("open");
+            exit(1);
+        }
+        // Get the size of the file
+        struct stat st;
+        fstat(fd, &st);
+        size_t filesize = st.st_size;
+
+        // Map the file to memory
+        void *addr = mmap(NULL, filesize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+        if (addr == MAP_FAILED)
+        {
+            perror("mmap");
+            exit(1);
+        }
+    }
+    else
+    {
+        FILE *file = fopen("rec_file_mmap.txt", "wb");
+        if (file == NULL)
+        {
+            perror("reciver file");
+            return -1;
+        }
+        for (size_t i = 0; i < filesize; i++)
+        {
+            fwrite(&(*((char *)addr)), 1, sizeof(char), file);
+            addr++;
+        }
+
+        fclose(file);
+        end = clock();
+        int c = checkSum("rec_file_mmap.txt");
+        if (c == 1)
+        {
+            printf("MMAP - end: %ld\n", end);
+        }
+        else if (c == -1)
+        {
+            printf("MMAP - end: %ld\n", end);
+        }
+    }
+
+    return 0;
+}
+
+int myPipe()
+{
+    int filedes[2], nbytes;
+    pid_t childpid;
+    char string[] = "Hello, world!\n";
+
+    pipe(filedes);
+
+    if ((childpid = fork()) == -1)
+    {
+        perror("fork");
+        exit(1);
+    }
+
+    if (childpid == 0)
+    {
+        close(filedes[0]); // Child process does not need this end of the pipe
+
+        /* Send "string" through the output side of pipe */
+        char buf[MAXLINE];
+        FILE *fp = fopen(fileName, "rb");
+        if (!fp)
+        {
+            perror("fopen sender");
+            return -1;
+        }
+
+        size_t bytes_read;
+        start = clock();
+        printf("PIPE - start: %ld\n", start);
+        while ((bytes_read = fread(buf, 1, sizeof(buf), fp)) > 0)
+        {
+            write(filedes[1], buf, (strlen(string) + 1));
+        }
+        exit(0);
+    }
+    else
+    {
+        /* Parent process closes up output side of pipe */
+        close(filedes[1]); // Parent process does not need this end of the pipe
+
+        FILE *file = fopen("rec_file_pipe.txt", "wb");
+        if (file == NULL)
+        {
+            perror("reciver file");
+            return -1;
+        }
+        char readbuffer[MAXLINE];
+        size_t num_bytes_received;
+        /* Read in a string from the pipe */
+        while (nbytes = read(filedes[0], readbuffer, sizeof(readbuffer)))
+        {
+            fwrite(readbuffer, sizeof(char), num_bytes_received, file);
+            bzero(readbuffer, MAXLINE);
+        }
+        fclose(file);
+
+        end = clock();
+        int c = checkSum("rec_file.txt");
+        if (c == 1)
+        {
+            printf("PIPE - end: %ld\n", end);
+        }
+        else if (c == -1)
+        {
+            printf("PIPE - end: %ld\n", end);
+        }
+    }
+
+    return (0);
+}
+
 int main(int argc, char *argv[])
 {
     create100MBfile();
     // sendUDS_datagram();
-    sendUDP();
+    // sendUDP();
+    // myPipe();
+    myMmap();
 
     return 0;
 }
