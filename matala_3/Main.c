@@ -16,6 +16,8 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/mman.h>
+#include <pthread.h>
+
 
 // define for UDS
 #define SOCK_PATH "tpf_unix_sock.server"
@@ -24,6 +26,11 @@
 
 #define MAXLINE 1024
 #define PORT 8080
+
+char globalBuf[MAXLINE]; // shared mem
+pthread_mutex_t mutex;
+
+
 char *IP = "127.0.0.1";
 clock_t start;
 clock_t end;
@@ -75,8 +82,63 @@ int create100MBfile()
     return 0;
 }
 
+// #define size 4096 
+
+// int cs_sum(char arr[size], int n) {
+//     long long checksum;
+//     int sum = 0, i;
+//     for (i = 0; i < n; i++)
+//         sum += arr[i];
+//     checksum = ~sum;    //1's complement of cs_sum
+//     return checksum;
+// }
 int checkSum(char *file_name2)
 {
+
+    // int fd2 = open(file_name2, O_CREAT | O_RDWR);
+    // int fd1 = open(fileName, O_CREAT | O_RDWR);
+//     // if we had problem to open the files.
+//     if (fd1 == -1)
+//     {
+//         perror("open files");
+//     }
+
+//     size_t r;
+//     long long sch;
+//     char buff[size];
+//     int sum = 0;
+//     while ((r = read(fd1, buff, sizeof(buff))) > 0) {
+//         sch = cs_sum(buff, r);
+//         bzero(buff, size);
+//         sum += sch;
+//     }
+
+//     // if we had problem to open the files.
+//     if (fd2 == -1) {
+//         perror("open files");
+//     }
+
+//     size_t r2;
+//     char buff2[size];
+
+//     int sum2 = 0;
+//     int sch2;
+//     while ((r2 = read(fd2, buff2, sizeof(buff2))) > 0) {
+//         sch2 = cs_sum(buff2, r2);
+//         bzero(buff2, size);
+//         sum2 += sch2;
+//     }
+
+//     sum2 += ~sum;
+//     long long res = ~sum2;
+// //    printf("CHECKSUM IS:%lld\n",res);
+//     if (res == 0) {
+//         return 1;
+//     } else {
+//         return -1;
+//     }
+// }
+
     int f2 = open(file_name2, O_CREAT | O_RDWR);
     int f1 = open(fileName, O_CREAT | O_RDWR);
     // if we had problem to open the files.
@@ -132,7 +194,6 @@ int checkSum(char *file_name2)
 /* TCP */
 int senderTCP()
 {
-
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
     // Set the address and port of the remote host.
     struct sockaddr_in addr;
@@ -224,6 +285,8 @@ int reciverTCP()
         perror("recive");
         return -1;
     }
+    close(sock_fd);
+    // close(client_fd);
     fclose(file);
 
     end = clock();
@@ -234,7 +297,7 @@ int reciverTCP()
     }
     else if (c == -1)
     {
-        printf("TCP/IPv4 Socket - end: %ld\n", end);
+        printf("TCP/IPv4 Socket - end: -1\n");
     }
     return 0;
 }
@@ -249,11 +312,13 @@ int sendTCP()
     if (pid == 0)
     {
         senderTCP();
+        exit(0);
     }
     else
     {
         reciverTCP();
         wait(NULL);
+        
     }
 }
 
@@ -277,7 +342,7 @@ int reciverUDP()
     // Filling server information
     servaddr.sin_family = AF_INET; // IPv4
     servaddr.sin_addr.s_addr = INADDR_ANY;
-    servaddr.sin_port = htons(PORT);
+    servaddr.sin_port = htons(12345);
 
     // Bind the socket with the server address
     if (bind(sockfd, (const struct sockaddr *)&servaddr,
@@ -301,13 +366,15 @@ int reciverUDP()
                                           MSG_WAITALL, (struct sockaddr *)&cliaddr,
                                           &len)) > 0)
     {
+        if (num_bytes_received == -1)
+        {
+            perror("recive");
+            return -1;
+        }
+        // printf("rec: %ld", num_bytes_received);
         num_bytes_written = fwrite(buffer, sizeof(char), num_bytes_received, file);
+        // printf("write: %ld\n", num_bytes_written);
         bzero(buffer, MAXLINE);
-    }
-    if (num_bytes_received == -1)
-    {
-        perror("recive");
-        return -1;
     }
 
     fclose(file);
@@ -319,7 +386,7 @@ int reciverUDP()
     }
     else if (c == -1)
     {
-        printf("UDP/IPv6 Socket - end: %ld\n", end);
+        printf("UDP/IPv6 Socket - end: -1\n");
     }
     close(sockfd);
     return 0;
@@ -342,7 +409,7 @@ int senderUDP()
     memset(buffer, 0, MAXLINE);
     // Filling server information
     servaddr.sin_family = AF_INET;
-    servaddr.sin_port = htons(PORT);
+    servaddr.sin_port = htons(12345);
     servaddr.sin_addr.s_addr = INADDR_ANY;
 
     // Open the file that you want to send.
@@ -357,14 +424,26 @@ int senderUDP()
     size_t bytes_read;
     start = clock();
     printf("UDP/IPv6 Socket - start: %ld\n", start);
+
     while ((bytes_read = fread(buffer, 1, sizeof(buffer), fp)) > 0)
     {
-
-        sendto(sockfd, (const char *)buffer, bytes_read, MSG_CONFIRM, (const struct sockaddr *)&servaddr, sizeof(servaddr));
+        size_t bytes_sent = 0;
+        while (bytes_sent != bytes_read)
+        {
+            size_t ret = sendto(sockfd, (const char *)buffer, bytes_read, MSG_CONFIRM, (const struct sockaddr *)&servaddr, sizeof(servaddr));
+            if(ret > 0){
+                bytes_sent += ret;
+            }else if (ret < 0)
+            {
+                perror("send");
+                exit(1);
+            }
+            
+        }
         bzero(buffer, MAXLINE);
+        
     }
     sendto(sockfd, "", 0, 0, (const struct sockaddr *)&servaddr, sizeof(servaddr));
-
     // Close the file and the socket.
     fclose(fp);
     close(sockfd);
@@ -381,6 +460,7 @@ int sendUDP()
     if (pid == 0)
     {
         senderUDP();
+        exit(0);
     }
     else
     {
@@ -508,7 +588,7 @@ int reciverUDS_stream()
     }
     else if (c == -1)
     {
-        printf("UDS - Stream socket - end: %ld\n", end);
+        printf("UDS - Stream socket - end: -1\n");
     }
     close(server_sock);
     close(client_sock);
@@ -604,6 +684,7 @@ int sendUDS_stream()
     if (pid == 0)
     {
         senderUDS_stream();
+        exit(0);
     }
     else
     {
@@ -690,7 +771,7 @@ int reciverUDS_datagram()
     }
     else if (c == -1)
     {
-        printf("UDS - Dgram socket - end: %ld\n", end);
+        printf("UDS - Dgram socket - end: -1\n");
     }
 
     close(server_sock);
@@ -775,6 +856,7 @@ int sendUDS_datagram()
     if (pid == 0)
     {
         senderUDS_datagram();
+        exit(0);
     }
     else
     {
@@ -828,7 +910,7 @@ int myMmap()
     }
     else if (c == -1)
     {
-        printf("MMAP - end: %ld\n", end);
+        printf("MMAP - end: -1\n");
     }
 
     return 0;
@@ -867,6 +949,7 @@ int myPipe()
         {
             write(filedes[1], buf, bytes_read);
         }
+        close(filedes[1]);
         exit(0);
     }
     else
@@ -885,9 +968,11 @@ int myPipe()
         /* Read in a string from the pipe */
         while (num_bytes_received = read(filedes[0], readbuffer, sizeof(readbuffer)))
         {
+            
             fwrite(readbuffer, sizeof(char), num_bytes_received, file);
             bzero(readbuffer, MAXLINE);
         }
+        close(filedes[0]);
         fclose(file);
 
         end = clock();
@@ -898,20 +983,87 @@ int myPipe()
         }
         else if (c == -1)
         {
-            printf("PIPE - end: %ld\n", end);
+            printf("PIPE - end: -1\n");
         }
     }
 
-    return (0);
+    return 0;
 }
+// // Thread 1: read from the file and write to the buffer
+// void *thread_1(void *arg)
+// {
+//     // Open the file for reading
+//     FILE *file = fopen(fileName, "r");
+
+//     // Read from the file and write to the buffer
+//     char tmpBuf[MAXLINE];
+//     while (!feof(file))
+//     {
+//         // Read a chunk of data from the file
+//         pthread_mutex_lock(&mutex);
+//         int bytes_read = fread(tmpBuf, 1, sizeof(tmpBuf), file);
+
+//         // Write the data to the buffer
+//         for (int i = 0; i < bytes_read; i++)
+//         {
+//             globalBuf[i] = tmpBuf[i];
+//         }
+//         bzero(tmpBuf, MAXLINE);
+//         pthread_mutex_unlock(&mutex);
+//     }
+
+//     // Close the file
+//     fclose(file);
+
+//     // Return from the thread
+//     pthread_exit(NULL);
+// }
+
+// // Thread 2: read from the buffer and write to a new file
+// void *thread_2(void *arg)
+// {
+//     // Open the new file for writing
+//     FILE *file = fopen("new_file.txt", "w");
+
+//     // Read from the buffer and write to the new file
+//     pthread_mutex_lock(&mutex);
+//     for (int i = 0; i < sizeof(globalBuf); i++)
+//     {
+//         fputc(globalBuf[i], file);
+//     }
+//     bzero(globalBuf, MAXLINE);
+//     pthread_mutex_unlock(&mutex);
+
+//     // Close the new file
+//     fclose(file);
+
+//     // Return from the thread
+//     pthread_exit(NULL);
+// }
+
+// int sharedMemory()
+// {
+//     // Create the two threads
+//     pthread_mutex_init(&mutex, NULL);
+//     pthread_t thread_1_id, thread_2_id;
+//     pthread_create(&thread_1_id, NULL, thread_1, NULL);
+//     pthread_create(&thread_2_id, NULL, thread_2, NULL);
+//     pthread_join(thread_1, NULL);
+//     pthread_join(thread_2, NULL);
+
+//     return 0;
+// }
 
 int main(int argc, char *argv[])
 {
     create100MBfile();
-    // sendUDS_datagram();
-    // sendUDP();
-    // myPipe();
+    sendTCP();
+    sendUDS_stream();
+    sendUDP();
+    sendUDS_datagram();
     myMmap();
+    myPipe();
+    
 
     return 0;
 }
