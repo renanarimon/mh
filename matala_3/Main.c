@@ -18,7 +18,6 @@
 #include <sys/mman.h>
 #include <pthread.h>
 
-
 // define for UDS
 #define SOCK_PATH "tpf_unix_sock.server"
 #define SERVER_PATH "tpf_unix_sock.server"
@@ -26,16 +25,16 @@
 
 #define MAXLINE 1024
 #define PORT 8080
+const int BUFFER_SIZE = MAXLINE * MAXLINE * 100; // 100 MB
 
 char globalBuf[MAXLINE]; // shared mem
 pthread_mutex_t mutex;
-
+int flag = -1;
 
 char *IP = "127.0.0.1";
 clock_t start;
 clock_t end;
-const int BUFFER_SIZE = MAXLINE * MAXLINE * 100; // 100 MB
-char *fileName = "f.txt";
+char *fileName = "file_100MB.txt";
 
 int create100MBfile()
 {
@@ -82,63 +81,8 @@ int create100MBfile()
     return 0;
 }
 
-// #define size 4096 
-
-// int cs_sum(char arr[size], int n) {
-//     long long checksum;
-//     int sum = 0, i;
-//     for (i = 0; i < n; i++)
-//         sum += arr[i];
-//     checksum = ~sum;    //1's complement of cs_sum
-//     return checksum;
-// }
 int checkSum(char *file_name2)
 {
-
-    // int fd2 = open(file_name2, O_CREAT | O_RDWR);
-    // int fd1 = open(fileName, O_CREAT | O_RDWR);
-//     // if we had problem to open the files.
-//     if (fd1 == -1)
-//     {
-//         perror("open files");
-//     }
-
-//     size_t r;
-//     long long sch;
-//     char buff[size];
-//     int sum = 0;
-//     while ((r = read(fd1, buff, sizeof(buff))) > 0) {
-//         sch = cs_sum(buff, r);
-//         bzero(buff, size);
-//         sum += sch;
-//     }
-
-//     // if we had problem to open the files.
-//     if (fd2 == -1) {
-//         perror("open files");
-//     }
-
-//     size_t r2;
-//     char buff2[size];
-
-//     int sum2 = 0;
-//     int sch2;
-//     while ((r2 = read(fd2, buff2, sizeof(buff2))) > 0) {
-//         sch2 = cs_sum(buff2, r2);
-//         bzero(buff2, size);
-//         sum2 += sch2;
-//     }
-
-//     sum2 += ~sum;
-//     long long res = ~sum2;
-// //    printf("CHECKSUM IS:%lld\n",res);
-//     if (res == 0) {
-//         return 1;
-//     } else {
-//         return -1;
-//     }
-// }
-
     int f2 = open(file_name2, O_CREAT | O_RDWR);
     int f1 = open(fileName, O_CREAT | O_RDWR);
     // if we had problem to open the files.
@@ -221,7 +165,7 @@ int senderTCP()
     char buffer[MAXLINE];
     size_t bytes_read;
     start = clock();
-    printf("TCP/IPv4 Socket - start: %f\n", (float)start/CLOCKS_PER_SEC);
+    printf("TCP/IPv4 Socket - start: %f\n", (float)start / CLOCKS_PER_SEC);
     while ((bytes_read = fread(buffer, 1, sizeof(buffer), fp)) > 0)
     {
         send(sockfd, buffer, bytes_read, 0);
@@ -266,7 +210,7 @@ int reciverTCP()
         return -1;
     }
 
-    FILE *file = fopen("rec_file.txt", "wb");
+    FILE *file = fopen("rec_file_tcp.txt", "wb");
     if (file == NULL)
     {
         perror("reciver file");
@@ -292,10 +236,10 @@ int reciverTCP()
     fclose(file);
 
     end = clock();
-    int c = checkSum("rec_file.txt");
+    int c = checkSum("rec_file_tcp.txt");
     if (c == 1)
     {
-        printf("TCP/IPv4 Socket - end: %f\n", (double)end/CLOCKS_PER_SEC);
+        printf("TCP/IPv4 Socket - end: %f\n", (double)end / CLOCKS_PER_SEC);
     }
     else if (c == -1)
     {
@@ -320,7 +264,6 @@ int sendTCP()
     {
         reciverTCP();
         wait(NULL);
-        
     }
 }
 
@@ -384,7 +327,7 @@ int reciverUDP()
     int c = checkSum("rec_file_udp.txt");
     if (c == 1)
     {
-        printf("UDP/IPv6 Socket - end: %f\n", (double)end/CLOCKS_PER_SEC);
+        printf("UDP/IPv6 Socket - end: %f\n", (double)end / CLOCKS_PER_SEC);
     }
     else if (c == -1)
     {
@@ -425,7 +368,7 @@ int senderUDP()
     // Read the contents of the file and send it over the socket.
     size_t bytes_read;
     start = clock();
-    printf("UDP/IPv6 Socket - start: %f\n", (double)start/CLOCKS_PER_SEC);
+    printf("UDP/IPv6 Socket - start: %f\n", (double)start / CLOCKS_PER_SEC);
 
     while ((bytes_read = fread(buffer, 1, sizeof(buffer), fp)) > 0)
     {
@@ -433,17 +376,17 @@ int senderUDP()
         while (bytes_sent != bytes_read)
         {
             size_t ret = sendto(sockfd, (const char *)buffer, bytes_read, MSG_CONFIRM, (const struct sockaddr *)&servaddr, sizeof(servaddr));
-            if(ret > 0){
+            if (ret > 0)
+            {
                 bytes_sent += ret;
-            }else if (ret < 0)
+            }
+            else if (ret < 0)
             {
                 perror("send");
                 exit(1);
             }
-            
         }
         bzero(buffer, MAXLINE);
-        
     }
     sendto(sockfd, "", 0, 0, (const struct sockaddr *)&servaddr, sizeof(servaddr));
     // Close the file and the socket.
@@ -586,7 +529,7 @@ int reciverUDS_stream()
     int c = checkSum("rec_file_uds.txt");
     if (c == 1)
     {
-        printf("UDS - Stream socket - end: %f\n", (double)end/CLOCKS_PER_SEC);
+        printf("UDS - Stream socket - end: %f\n", (double)end / CLOCKS_PER_SEC);
     }
     else if (c == -1)
     {
@@ -663,7 +606,7 @@ int senderUDS_stream()
     // Read the contents of the file and send it over the socket.
     size_t bytes_read;
     start = clock();
-    printf("UDS - Stream socket - start: %f\n", (double)start/CLOCKS_PER_SEC);
+    printf("UDS - Stream socket - start: %f\n", (double)start / CLOCKS_PER_SEC);
     while ((bytes_read = fread(buf, 1, sizeof(buf), fp)) > 0)
     {
         send(client_sock, buf, bytes_read, 0);
@@ -769,7 +712,7 @@ int reciverUDS_datagram()
     int c = checkSum("rec_file_uds_dg.txt");
     if (c == 1)
     {
-        printf("UDS - Dgram socket - end: %f\n", (double)end/CLOCKS_PER_SEC);
+        printf("UDS - Dgram socket - end: %f\n", (double)end / CLOCKS_PER_SEC);
     }
     else if (c == -1)
     {
@@ -821,7 +764,7 @@ int senderUDS_datagram()
 
     size_t bytes_read;
     start = clock();
-    printf("UDS - Dgram socket - start: %f\n", (double)start/CLOCKS_PER_SEC);
+    printf("UDS - Dgram socket - start: %f\n", (double)start / CLOCKS_PER_SEC);
     while ((bytes_read = fread(buf, 1, sizeof(buf), fp)) > 0)
     {
         sendto(client_sock, (const char *)buf, bytes_read, MSG_CONFIRM, (const struct sockaddr *)&remote, sizeof(remote));
@@ -883,7 +826,7 @@ int myMmap()
 
     // Map the file to memory
     start = clock();
-    printf("MMAP - start: %f\n", (double)start/CLOCKS_PER_SEC);
+    printf("MMAP - start: %f\n", (double)start / CLOCKS_PER_SEC);
     void *addr = mmap(NULL, filesize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (addr == MAP_FAILED)
     {
@@ -908,7 +851,7 @@ int myMmap()
     int c = checkSum("rec_file_mmap.txt");
     if (c == 1)
     {
-        printf("MMAP - end: %f\n", (double)end/CLOCKS_PER_SEC);
+        printf("MMAP - end: %f\n", (double)end / CLOCKS_PER_SEC);
     }
     else if (c == -1)
     {
@@ -946,7 +889,7 @@ int myPipe()
 
         size_t bytes_read;
         start = clock();
-        printf("PIPE - start: %f\n", (double)start/CLOCKS_PER_SEC);
+        printf("PIPE - start: %f\n", (double)start / CLOCKS_PER_SEC);
         while ((bytes_read = fread(buf, 1, sizeof(buf), fp)) > 0)
         {
             write(filedes[1], buf, bytes_read);
@@ -970,7 +913,7 @@ int myPipe()
         /* Read in a string from the pipe */
         while (num_bytes_received = read(filedes[0], readbuffer, sizeof(readbuffer)))
         {
-            
+
             fwrite(readbuffer, sizeof(char), num_bytes_received, file);
             bzero(readbuffer, MAXLINE);
         }
@@ -981,7 +924,7 @@ int myPipe()
         int c = checkSum("rec_file_pipe.txt");
         if (c == 1)
         {
-            printf("PIPE - end: %f\n", (double)end/CLOCKS_PER_SEC);
+            printf("PIPE - end: %f\n", (double)end / CLOCKS_PER_SEC);
         }
         else if (c == -1)
         {
@@ -991,69 +934,88 @@ int myPipe()
 
     return 0;
 }
-// Thread 1: read from the file and write to the buffer
-void *thread_1(void *arg)
+
+void *senderSharred_thread1(void *arg)
 {
-    // Open the file for reading
-    FILE *file = fopen(fileName, "r");
-
-    // Read from the file and write to the buffer
-    char tmpBuf[MAXLINE];
-    while (!feof(file))
+    // Get the address of the shared memory object from the argument
+    void *addr = (void *)arg;
+    // const char *filename = "100mb.txt";
+    struct stat file_stat;
+    if (stat(fileName, &file_stat) != 0)
     {
-        // Read a chunk of data from the file
-        pthread_mutex_lock(&mutex);
-        int bytes_read = fread(tmpBuf, 1, sizeof(tmpBuf), file);
+        perror("Error getting file information");
+        exit(1);
+    }
 
-        // Write the data to the buffer
-        for (int i = 0; i < bytes_read; i++)
+    // Print the size of the file
+    // Transfer the file from the shared memory object to the specified location
+    int dest_fd = open("rec_file_shared.txt", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (dest_fd == -1)
+    {
+        perror("OPEN");
+        exit(1);
+    }
+
+    // Write the file from the shared memory object to the destination file
+    size_t num_bytes = 0;
+    ssize_t bytes_written = 0;
+    while (num_bytes < file_stat.st_size && bytes_written != -1)
+    {
+        bytes_written = write(dest_fd, addr, file_stat.st_size - num_bytes);
+        if (bytes_written == -1)
         {
-            globalBuf[i] = tmpBuf[i];
+            perror("WRITE");
+            exit(1);
         }
-        bzero(tmpBuf, MAXLINE);
-        pthread_mutex_unlock(&mutex);
+        num_bytes += bytes_written;
     }
+    close(dest_fd);
 
-    // Close the file
-    fclose(file);
-
-    // Return from the thread
-    pthread_exit(NULL);
+    // Return success
+    return NULL;
 }
 
-// Thread 2: read from the buffer and write to a new file
-void *thread_2(void *arg)
+void *senderSharred_thread2()
 {
-    // Open the new file for writing
-    FILE *file = fopen("new_file.txt", "w");
+    start = clock();
+    printf("SHARED MEMORY - start: %f\n", (double)start / CLOCKS_PER_SEC);
 
-    // Read from the buffer and write to the new file
-    pthread_mutex_lock(&mutex);
-    for (int i = 0; i < sizeof(globalBuf); i++)
+    int fd = open(fileName, O_RDONLY);
+
+    size_t file_size = lseek(fd, 0, SEEK_END);
+
+    void *addr = mmap(NULL, file_size, PROT_READ, MAP_SHARED, fd, 0);
+
+    pthread_t thread;
+    pthread_create(&thread, NULL, senderSharred_thread1, addr);
+    
+    pthread_join(thread, NULL);
+
+    munmap(addr, file_size);
+    close(fd);
+    end = clock();
+    int c = checkSum("rec_file_shared.txt");
+    if (c == 1)
     {
-        fputc(globalBuf[i], file);
+        printf("SHARED MEMORY - end: %f\n", (double)end / CLOCKS_PER_SEC);
     }
-    bzero(globalBuf, MAXLINE);
-    pthread_mutex_unlock(&mutex);
+    else if (c == -1)
+    {
+        printf("SHARED MEMORY - end: -1\n");
+    }
 
-    // Close the new file
-    fclose(file);
 
-    // Return from the thread
-    pthread_exit(NULL);
+    // Return success
+    return NULL;
 }
 
-int sharedMemory()
+void threads_shared_mem()
 {
-    // Create the two threads
-    pthread_mutex_init(&mutex, NULL);
-    pthread_t thread_1_id, thread_2_id;
-    pthread_create(&thread_1_id, NULL, thread_1, NULL);
-    pthread_create(&thread_2_id, NULL, thread_2, NULL);
-    pthread_join(thread_1, NULL);
-    pthread_join(thread_2, NULL);
+    pthread_t thread;
+    pthread_create(&thread, NULL, senderSharred_thread2, fileName);
 
-    return 0;
+    // Wait for the thread to finish
+    pthread_join(thread, NULL);
 }
 
 int main(int argc, char *argv[])
@@ -1061,9 +1023,10 @@ int main(int argc, char *argv[])
     create100MBfile();
     sendTCP();
     sendUDS_stream();
-    // sendUDP();
+    sendUDP();
     sendUDS_datagram();
     myMmap();
     myPipe();
+    threads_shared_mem();
     return 0;
 }

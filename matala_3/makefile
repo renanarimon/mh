@@ -3,14 +3,13 @@ AR = ar
 FLAGS = -Wall -g
 
 all: main
-
+run: main
+	./main
 main: Main.o
-	$(CC) -o main Main.o
+	$(CC) -pthread -o main Main.o
 
-main.o: Nain.c
+main.o: Main.c
 	$(CC) $(FLAGS) -c Main.c 
 
-
-
 clean:
-	rm -f *.o *.so *.txt *.client *.server main 
+	rm -f *.o *.so *.client *.server rec_file*.txt file_100MB.txt main 
