@@ -13,10 +13,8 @@ void* thread_func(void* arg) {
     
     // Modify shared resource
     shared_resource++;
-    int arr[1000];
-    for (size_t i = 0; i < 1000; i++)
+    for (size_t i = 0; i < 500; i++)
     {
-      arr[i] = i;
     }
     
     // Unlock mutex
