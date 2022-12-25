@@ -15,9 +15,6 @@ void *increment_count(void *arg)
     {
         pthread_mutex_lock(&mutex);
         count++;
-        for (size_t i = 0; i < 500; i++)
-        {
-        }
         pthread_cond_signal(&cond);
         pthread_mutex_unlock(&mutex);
     }
@@ -56,8 +53,9 @@ int main(int argc, char *argv[])
     // Stop timer
     clock_gettime(CLOCK_MONOTONIC, &end);
 
-    double elapsed = end.tv_sec - start.tv_sec + (end.tv_nsec - start.tv_nsec) / 1e9;
-    printf("wake a task using lock -%f sec\n", elapsed);
+    long elapsed_time = (end.tv_sec - start.tv_sec) * 1000000000 + (end.tv_nsec - start.tv_nsec);
+    double time_secs = (double)elapsed_time / 1000000000.0;
+    printf("wake a task using cond -%f sec\n", time_secs);
 
 
     // Clean up

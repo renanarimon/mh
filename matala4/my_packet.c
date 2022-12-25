@@ -1,117 +1,80 @@
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
-#include <sys/socket.h>
-#include <pthread.h>
-#include <semaphore.h>
-#include <netinet/in.h>
+#include <sys/wait.h>
+#include <time.h>
 
-#define MESSAGE_LENGTH 1024
+#define LOOP_COUNT 500000
 
-sem_t sem;
-int count;
-
-void *send_thread_func(void *socket_desc)
+int main(void)
 {
-    int sock = *(int *)socket_desc;
-    char message[MESSAGE_LENGTH];
+    struct timespec start, end;
+    int pipefd[2];
+    pid_t pid;
+    int i;
+    char bit = '1';
 
-    for(size_t i =0; i< 1000000; i++)
+    // Create the pipe
+    if (pipe(pipefd) == -1)
     {
-        printf("Enter a message to send: ");
-        fflush(stdout);
-        count++;
-        printf("count: %d", count);
-        fflush(stdout);
-        sem_wait(&sem);
-        send(sock, message, strlen(message), 0);
-    }
-
-    return 0;
-}
-
-void *recv_thread_func(void *socket_desc)
-{
-    int sock = *(int *)socket_desc;
-    char message[MESSAGE_LENGTH];
-    int read_size;
-
-    while ((read_size = recv(sock, message, MESSAGE_LENGTH, 0)) > 0)
-    {
-        // read_size = recv(sock, message, MESSAGE_LENGTH, 0);
-        // if (read_size > 0)
-        // {
-        printf("Received message: %s", message);
-        count++;
-        sem_post(&sem);
-        // }
-    }
-
-    return 0;
-}
-
-int main(int argc, char **argv)
-{
-    int sock;
-    struct sockaddr_in server;
-    pthread_t send_thread, recv_thread;
-
-    // Initialize the semaphore
-    sem_init(&sem, 0, 1);
-
-    // Create the socket
-    sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock == -1)
-    {
-        printf("Could not create socket");
-    }
-    puts("Socket created");
-
-    // Prepare the sockaddr_in structure
-    server.sin_family = AF_INET;
-    server.sin_addr.s_addr = INADDR_ANY;
-    server.sin_port = htons(8888);
-
-    // Bind
-    if (bind(sock, (struct sockaddr *)&server, sizeof(server)) < 0)
-    {
-        perror("bind failed. Error");
+        perror("Failed to create pipe");
         return 1;
     }
 
-    // Listen
-    listen(sock, 3);
-
-    // Accept and incoming connection
-    puts("Waiting for incoming connections...");
-    int client_sock = accept(sock, NULL, NULL);
-    if (client_sock < 0)
+    // Fork the process
+    pid = fork();
+    if (pid == -1)
     {
-        perror("accept failed");
-        return 1;
-    }
-    puts("Connection accepted");
-
-    // Create the send and receive threads
-    if (pthread_create(&send_thread, NULL, send_thread_func, &client_sock) < 0)
-    {
-        perror("could not create send thread");
-        return 1;
-    }
-    if (pthread_create(&recv_thread, NULL, recv_thread_func, &client_sock) < 0)
-    {
-        perror("could not create recv thread");
+        perror("Failed to fork process");
         return 1;
     }
 
-    // Wait for the threads to finish
-    pthread_join(send_thread, NULL);
-    pthread_join(recv_thread, NULL);
+    // Start timer
+    clock_gettime(CLOCK_MONOTONIC, &start);
 
-    // Clean up
-    close(sock);
-    sem_destroy(&sem);
+    for (i = 0; i < LOOP_COUNT; i++)
+    {
+        if (pid == 0)
+        {
+            // Child process: read from pipe and write to pipe
+            if (read(pipefd[0], &bit, 1) != 1)
+            {
+                perror("Failed to read from pipe");
+                return 1;
+            }
+            if (write(pipefd[1], &bit, 1) != 1)
+            {
+                perror("Failed to write to pipe");
+                return 1;
+            }
+        }
+        else
+        {
+            // Parent process: write to pipe and read from pipe
+            if (write(pipefd[1], &bit, 1) != 1)
+            {
+                perror("Failed to write to pipe");
+                return 1;
+            }
+            if (read(pipefd[0], &bit, 1) != 1)
+            {
+                perror("Failed to read from pipe");
+                return 1;
+            }
+        }
+    }
+    // Stop timer
+    clock_gettime(CLOCK_MONOTONIC, &end);
+
+    // Calculate elapsed time
+    long elapsed_time = (end.tv_sec - start.tv_sec) * 1000000000 + (end.tv_nsec - start.tv_nsec);
+    double time_secs = (double)elapsed_time / 1000000000.0;
+
+    // Wait for child process to finish
+    wait(NULL);
+    if (pid != 0)
+    {
+        printf("wake a task using pipe -%f sec\n", time_secs);
+    }
 
     return 0;
 }
